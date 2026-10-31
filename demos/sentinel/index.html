@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sentinel Replay</title>
+<meta name="description" content="A recorded run of Sentinel, the fraud investigator beside Transakt: 150 payments scored, 6 planted fraud incidents caught, 0 false cases.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/site.css">
+<script src="../../assets/theme.js"></script>
+<style>
+  .intro { padding: 56px 0 8px; }
+  .intro h1 { font-size: clamp(36px, 6vw, 60px); font-weight: 800; font-stretch: 118%; letter-spacing: -0.03em; }
+  .banner { margin-top: 22px; padding: 14px 16px; border-left: 4px solid var(--stamp); background: var(--stamp-soft); border-radius: 0 6px 6px 0; max-width: 50em; }
+  .banner p { margin: 0; } .banner p + p { margin-top: 6px; }
+
+  /* the pipeline: what each part of the system is doing right now */
+  .pipe { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 36px 0 0; border: 1.5px solid var(--ink); border-radius: 4px; }
+  .pipe > div { padding: 14px 16px; border-left: 1px solid var(--rule); }
+  .pipe > div:first-child { border-left: 0; }
+  .pipe .n { font-size: 30px; font-weight: 750; font-stretch: 88%; line-height: 1.1; }
+  .pipe .k { font-weight: 650; }
+  .pipe .d { font-size: 14px; color: var(--ink-2); margin-top: 2px; }
+  .pipe .lit { animation: lit 0.9s ease-out; }
+  @keyframes lit { from { background: var(--stamp-soft); } to { background: transparent; } }
+  @media (max-width: 760px) { .pipe { grid-template-columns: 1fr 1fr; } .pipe > div:nth-child(3) { border-left: 0; } .pipe > div:nth-child(n+3) { border-top: 1px solid var(--rule); } }
+
+  .player { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 18px 0 0; }
+  .player .clock { font-weight: 700; min-width: 7ch; }
+  .player progress { flex: 1 1 200px; height: 8px; accent-color: var(--stamp); }
+  .player select { font: 500 15px var(--sans); padding: 8px; border-radius: 6px; border: 1.5px solid var(--rule); background: var(--paper); color: var(--ink); }
+
+  .board { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 32px; margin-top: 28px; }
+  @media (max-width: 860px) { .board { grid-template-columns: 1fr; } }
+  .board h2 { font-size: 20px; font-stretch: 100%; margin-bottom: 10px; }
+
+  .stream { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ink); min-height: 120px; }
+  .stream li { display: grid; grid-template-columns: 4.5ch 9ch minmax(0, 1fr) 7ch; gap: 10px; align-items: center; padding: 7px 4px; border-bottom: 1px solid var(--rule); font-size: 14.5px; }
+  .stream li.flag { background: var(--debit-soft); }
+  .stream .t { color: var(--ink-2); }
+  .stream .amt { text-align: right; font-weight: 600; }
+  .stream .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stream .who small { color: var(--ink-2); }
+  .bar-score { height: 6px; background: var(--paper-2); border-radius: 3px; overflow: hidden; }
+  .bar-score i { display: block; height: 100%; background: var(--credit); }
+  .flag .bar-score i { background: var(--debit); }
+  .empty { color: var(--ink-2); padding: 14px 4px; }
+
+  .cases { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ink); }
+  .cases li { border-bottom: 1px solid var(--rule); }
+  .cases button {
+    all: unset; box-sizing: border-box; width: 100%; cursor: pointer; padding: 12px 6px;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px;
+  }
+  .cases button:hover { background: var(--paper-2); }
+  .cases button:focus-visible { outline: 3px solid var(--stamp); outline-offset: -3px; }
+  .cases button[aria-expanded="true"] { background: var(--stamp-soft); }
+  .cases .name { font-weight: 650; }
+  .cases .why { grid-column: 1; color: var(--ink-2); font-size: 14px; }
+  .cases .tag { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+  .cases li.new { animation: lit 1.2s ease-out; }
+
+  .detail { margin-top: 32px; border: 1.5px solid var(--ink); border-radius: 4px; padding: 22px 22px 18px; }
+  .detail[hidden] { display: none; }
+  .detail h2 { font-size: 24px; font-stretch: 108%; }
+  .detail .meta { color: var(--ink-2); margin: 6px 0 16px; }
+  .analysts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .analyst { border-top: 3px solid var(--rule); padding-top: 10px; }
+  .analyst.sig { border-top-color: var(--debit); }
+  .analyst h3 { font-size: 16px; }
+  .analyst p { margin: 6px 0; font-size: 15px; }
+  .analyst .tools { font-size: 13.5px; color: var(--ink-2); }
+  .rec { margin-top: 18px; padding: 14px 16px; background: var(--paper-2); border-radius: 6px; }
+  .rec p { margin: 6px 0 0; }
+  .decide { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+
+  table.grade { border-collapse: collapse; width: 100%; max-width: 760px; margin-top: 8px; font-size: 15.5px; }
+  table.grade th, table.grade td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  table.grade th { font-weight: 600; color: var(--ink-2); width: 46%; }
+  table.grade td { font-weight: 650; }
+  table.grade.incidents th, table.grade.incidents td { width: auto; font-weight: 500; }
+  table.grade.incidents thead th { font-weight: 600; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="bar">
+  <div class="wrap">
+    <a class="home" href="../../">Aman Raj Verma</a>
+    <nav aria-label="Main">
+      <a href="../../#projects">Projects</a>
+      <a href="../transakt/">Try Transakt</a>
+      <a href="https://github.com/ARV0007/transakt-sentinel">Sentinel code</a>
+      <button class="theme-toggle" type="button">Dark mode</button>
+    </nav>
+  </div>
+</div>
+
+<main id="main" class="wrap">
+  <div class="intro">
+    <h1>Sentinel, replayed</h1>
+    <p class="lede">150 payments from a simulator with fraud planted in them, scored one by one. Watch which ones get flagged, open the cases the agent built, and make the analyst's call yourself.</p>
+    <div class="banner">
+      <p>This is a recording, not a live system. It's the real pipeline (simulator, ML scorer, investigator agent and MCP tools) run end to end on 31 Oct 2026 with Sentinel's own test harness, which stands in for Kafka. Every row and every case below is what that run produced.</p>
+      <p>In this run no LLM key was set, so recommendations were written by the rule-based fallback. With a key, an LLM writes them, and Sentinel checks every number in the text against the evidence before showing it.</p>
+    </div>
+  </div>
+
+  <div class="pipe" aria-live="polite">
+    <div id="p-sent"><div class="n">0</div><div class="k">Payments settled</div><div class="d">from 22 merchants</div></div>
+    <div id="p-flag"><div class="n">0</div><div class="k">Flagged by the model</div><div class="d">scored in about 1 ms each, no LLM</div></div>
+    <div id="p-case"><div class="n">0</div><div class="k">Cases investigated</div><div class="d">specialists gather evidence via MCP</div></div>
+    <div id="p-human"><div class="n">0</div><div class="k">Decided by you</div><div class="d">the agent only recommends</div></div>
+  </div>
+
+  <div class="player">
+    <button class="btn solid" id="play" type="button">Play</button>
+    <button class="btn" id="skip" type="button">Skip to the end</button>
+    <label class="note">Speed
+      <select id="speed">
+        <option value="5">5×</option>
+        <option value="10" selected>10×</option>
+        <option value="25">25×</option>
+      </select>
+    </label>
+    <progress id="progress" max="1" value="0" aria-label="Replay progress"></progress>
+    <span class="clock" id="clock">0:00</span>
+  </div>
+
+  <div class="board">
+    <div>
+      <h2>Payments, newest first</h2>
+      <ul class="stream" id="stream"><li class="empty">Press Play to start the run.</li></ul>
+    </div>
+    <div>
+      <h2>Cases</h2>
+      <ul class="cases" id="cases"><li class="empty">One case per merchant, opened at its first flagged payment.</li></ul>
+    </div>
+  </div>
+
+  <section class="detail" id="detail" hidden aria-live="polite"></section>
+
+  <section id="grade" aria-labelledby="grade-title" hidden>
+    <h2 id="grade-title">How the run was graded</h2>
+    <p class="sub">The simulator kept an answer key: which payments it planted, as part of which incident. <a href="https://github.com/ARV0007/transakt-sentinel/blob/main/eval/evaluate.py">eval/evaluate.py</a> compared the system's output against it.</p>
+    <table class="grade" id="grade-table"></table>
+    <h3 style="margin-top:28px">Each planted incident</h3>
+    <table class="grade incidents" id="incident-table"></table>
+    <p class="note" style="margin-top:14px">Missed payments are all from the velocity bursts: the first few of a burst look normal until the pace gives them away. The incident still gets a case either way. A longer run with Kafka on Docker scored precision 0.947; this shorter one happened to have no false flags at all.</p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><a href="../../">Back to the portfolio</a></span>
+    <span>Recorded 31 Oct 2026, 3-minute simulated run</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var NAMES = {
+    velocity_analyst: { title: "Velocity analyst", tools: "merchant_activity (30 min), merchant_activity (24 h)" },
+    amount_analyst: { title: "Amount analyst", tools: "merchant_amount_profile (24 h)" },
+    merchant_profile_analyst: { title: "Merchant profile analyst", tools: "get_merchant, merchant_activity (24 h)" }
+  };
+  var REASONS = {
+    VELOCITY: "many payments in a short time",
+    NEW_MERCHANT_HIGH_VALUE: "new account, large amounts",
+    AMOUNT_SPIKE: "far above its usual amount",
+    EXTERNAL_REQUEST: "also asked about by another agent over A2A"
+  };
+  var TRUTH = { normal: "normal", velocity_burst: "planted: burst", new_merchant_blitz: "planted: new-account blitz", amount_spike: "planted: amount spike" };
+
+  var data, i = 0, c = 0, t = 0, playing = false, last = 0, decided = 0, flagged = 0;
+  var $ = function (id) { return document.getElementById(id); };
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function rupees(paise) { return "₹" + Math.round(paise / 100).toLocaleString("en-IN"); }
+  function clock(s) { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
+  function pulse(id, n) {
+    var box = $(id); box.querySelector(".n").textContent = n;
+    if (reduce) return;
+    box.classList.remove("lit"); void box.offsetWidth; box.classList.add("lit");
+  }
+  function merchantLabel(m) {
+    var cs = data.cases.filter(function (x) { return x.m === m; })[0];
+    return cs && cs.name ? cs.name.replace(/ [0-9a-f]{8}$/, "") : "Merchant " + m;
+  }
+
+  function addPayment(p) {
+    var list = $("stream");
+    var empty = list.querySelector(".empty"); if (empty) empty.remove();
+    var li = el("li", p.flag ? "flag" : "");
+    li.appendChild(el("span", "t", clock(p.t)));
+    li.appendChild(el("span", "amt", rupees(p.amt)));
+    var who = el("span", "who");
+    who.appendChild(document.createTextNode(merchantLabel(p.m) + " "));
+    who.appendChild(el("small", null, (p.flag ? "flagged " + p.score.toFixed(2) : "ok " + p.score.toFixed(2)) + ", " + TRUTH[p.truth]));
+    li.appendChild(who);
+    var bar = el("span", "bar-score"); var fill = el("i"); fill.style.width = Math.max(2, p.score * 100) + "%"; bar.appendChild(fill);
+    bar.setAttribute("aria-label", "risk score " + p.score.toFixed(2));
+    li.appendChild(bar);
+    list.insertBefore(li, list.firstChild);
+    while (list.children.length > 14) list.removeChild(list.lastChild);
+    pulse("p-sent", i + 1);
+    if (p.flag) { flagged++; pulse("p-flag", flagged); }
+  }
+
+  function addCase(k) {
+    var list = $("cases");
+    var empty = list.querySelector(".empty"); if (empty) empty.remove();
+    var li = el("li", reduce ? "" : "new");
+    var b = el("button"); b.type = "button"; b.setAttribute("aria-expanded", "false"); b.dataset.id = k.id;
+    b.appendChild(el("span", "name", (k.name || k.m).replace(/ [0-9a-f]{8}$/, "")));
+    b.appendChild(el("span", "why", k.reasons.map(function (r) { return REASONS[r] || r; }).join("; ")));
+    var tg = el("span", "tag hold", k.decision ? (k.decision === "CONFIRM_FRAUD" ? "Confirmed" : "Dismissed") : "Hold payout");
+    tg.id = "tag-" + k.id;
+    b.appendChild(tg);
+    b.addEventListener("click", function () { openCase(k, b); });
+    li.appendChild(b);
+    list.appendChild(li);
+    pulse("p-case", c + 1);
+  }
+
+  function openCase(k, btn) {
+    document.querySelectorAll(".cases button").forEach(function (x) { x.setAttribute("aria-expanded", "false"); });
+    btn.setAttribute("aria-expanded", "true");
+    var d = $("detail"); d.textContent = ""; d.hidden = false;
+    d.appendChild(el("h2", null, (k.name || k.m).replace(/ [0-9a-f]{8}$/, "")));
+    d.appendChild(el("p", "meta", "Opened at " + clock(k.t) + " by a " + rupees(k.trigger.amt) + " payment scored " + k.score.toFixed(3) +
+      ". " + k.payments + " flagged payments from this merchant were attached to the case by the end of the run."));
+    var grid = el("div", "analysts");
+    Object.keys(NAMES).forEach(function (key) {
+      var f = k.findings[key];
+      if (!f) return;
+      var a = el("div", "analyst" + (f.signal ? " sig" : ""));
+      a.appendChild(el("h3", null, NAMES[key].title + (f.signal ? ": fraud signal" : ": nothing unusual")));
+      a.appendChild(el("p", null, f.summary.charAt(0).toUpperCase() + f.summary.slice(1) + "."));
+      a.appendChild(el("p", "tools", "MCP tools called: " + NAMES[key].tools));
+      grid.appendChild(a);
+    });
+    var skipped = Object.keys(NAMES).filter(function (key) { return !k.findings[key]; });
+    d.appendChild(grid);
+    if (skipped.length) d.appendChild(el("p", "note", "The supervisor didn't send the " + skipped.map(function (s) { return NAMES[s].title.toLowerCase(); }).join(" or ") + ": the flag's reasons didn't call for it."));
+    var rec = el("div", "rec");
+    var head = el("p"); head.style.margin = "0";
+    var strong = el("strong", null, "Recommendation: hold the payout"); head.appendChild(strong);
+    head.appendChild(document.createTextNode(", confidence " + k.rec.confidence + ". Written by " + (k.rec.source === "rules" ? "the rule-based fallback" : "the LLM") + "; " + (k.rec.grounded ? "every number checked against the evidence." : "some numbers could not be checked.")));
+    rec.appendChild(head);
+    rec.appendChild(el("p", null, k.rec.rationale));
+    d.appendChild(rec);
+    var dec = el("div", "decide");
+    if (k.decision) {
+      dec.appendChild(el("p", null, "You marked this " + (k.decision === "CONFIRM_FRAUD" ? "confirmed fraud" : "dismissed") + ". In the real system that decision is saved as a training label for the next retrain."));
+    } else {
+      [["Confirm fraud", "CONFIRM_FRAUD", "solid"], ["Dismiss", "DISMISS", ""]].forEach(function (o) {
+        var b = el("button", "btn " + o[2], o[0]); b.type = "button";
+        b.addEventListener("click", function () {
+          k.decision = o[1]; decided++; pulse("p-human", decided);
+          var tg = $("tag-" + k.id);
+          tg.textContent = o[1] === "CONFIRM_FRAUD" ? "Confirmed" : "Dismissed";
+          tg.className = "tag " + (o[1] === "CONFIRM_FRAUD" ? "hold" : "ok");
+          openCase(k, btn);
+        });
+        dec.appendChild(b);
+      });
+      dec.appendChild(el("span", "note", "Only this page changes; the recording stays as it was. For the record, this merchant's payments were " + TRUTH[k.truth].replace("planted: ", "planted fraud (") + (k.truth === "normal" ? "." : ").")));
+    }
+    d.appendChild(dec);
+    if (!reduce) d.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function step(now) {
+    if (!playing) return;
+    var dt = last ? (now - last) / 1000 : 0; last = now;
+    t += dt * Number($("speed").value);
+    advanceTo(t);
+    if (i >= data.payments.length) { finish(); return; }
+    requestAnimationFrame(step);
+  }
+
+  function advanceTo(time) {
+    while (i < data.payments.length && data.payments[i].t <= time) { addPayment(data.payments[i]); i++; }
+    while (c < data.cases.length && data.cases[c].t <= time) { addCase(data.cases[c]); c++; }
+    var end = data.payments[data.payments.length - 1].t;
+    $("progress").value = Math.min(1, time / end);
+    $("clock").textContent = clock(Math.min(time, end));
+  }
+
+  function finish() {
+    playing = false;
+    $("play").textContent = "Replay from the start";
+    $("skip").disabled = true;
+    showGrade();
+  }
+
+  function showGrade() {
+    var e = data.eval, pl = e.payment_level, il = e.incident_level;
+    var rows = [
+      ["Planted fraud incidents with a case", il.detected + " of " + il.incidents],
+      ["Of those, recommended to hold the payout", il.recommended_hold + " of " + il.incidents],
+      ["Cases opened on honest merchants", String(e.false_alarms.cases_on_normal_merchants)],
+      ["Planted fraudulent payments flagged (recall)", pl.tp + " of " + (pl.tp + pl.fn) + " (" + Math.round(pl.recall * 100) + "%)"],
+      ["Flags that were really fraud (precision)", pl.tp + " of " + (pl.tp + pl.fp) + " (" + Math.round(pl.precision * 100) + "%)"],
+      ["Payments that reached the investigation step", e.cost.cases + " cases for " + e.payments + " payments (" + e.cost.llm_share_of_payments_pct + "%)"]
+    ];
+    var gt = $("grade-table"); gt.textContent = "";
+    rows.forEach(function (r) { var tr = el("tr"); tr.appendChild(el("th", null, r[0])); tr.appendChild(el("td", null, r[1])); gt.appendChild(tr); });
+    var it = $("incident-table"); it.textContent = "";
+    var hd = el("thead"), hr = el("tr");
+    ["Pattern", "Merchant", "Payments flagged", "Case"].forEach(function (h) { hr.appendChild(el("th", null, h)); });
+    hd.appendChild(hr); it.appendChild(hd);
+    var tb = el("tbody");
+    il.rows.forEach(function (r) {
+      var tr = el("tr");
+      tr.appendChild(el("td", null, TRUTH[r.incident].replace("planted: ", "")));
+      tr.appendChild(el("td", null, merchantLabel(r.merchant)));
+      tr.appendChild(el("td", null, r.flagged + " of " + r.payments));
+      tr.appendChild(el("td", null, r.case ? "Yes, hold payout" : "No"));
+      tb.appendChild(tr);
+    });
+    it.appendChild(tb);
+    $("grade").hidden = false;
+  }
+
+  function reset() {
+    i = 0; c = 0; t = 0; flagged = 0; decided = 0;
+    $("stream").textContent = ""; $("cases").textContent = "";
+    $("detail").hidden = true; $("grade").hidden = true; $("skip").disabled = false;
+    ["p-sent", "p-flag", "p-case", "p-human"].forEach(function (id) { $(id).querySelector(".n").textContent = "0"; });
+    data.cases.forEach(function (k) { delete k.decision; });
+  }
+
+  $("play").addEventListener("click", function () {
+    if (!data) return;
+    if (i >= data.payments.length) reset();
+    playing = !playing;
+    $("play").textContent = playing ? "Pause" : "Play";
+    last = 0;
+    if (playing) requestAnimationFrame(step);
+  });
+  $("skip").addEventListener("click", function () {
+    if (!data) return;
+    playing = false;
+    t = data.payments[data.payments.length - 1].t + 1;
+    advanceTo(t);
+    finish();
+  });
+
+  fetch("replay.json").then(function (r) { return r.json(); }).then(function (d) {
+    data = d;
+  }).catch(function () {
+    $("stream").innerHTML = "";
+    $("stream").appendChild(el("li", "empty", "The recording didn't load. Refresh the page to try again."));
+  });
+})();
+</script>
+</body>
+</html>

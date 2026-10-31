@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Try Transakt</title>
+<meta name="description" content="Sign up, take a payment, retry it safely and read the ledger, against the live Transakt API.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/site.css">
+<script src="../../assets/theme.js"></script>
+<style>
+  .intro { padding: 56px 0 8px; }
+  .intro h1 { font-size: clamp(36px, 6vw, 60px); font-weight: 800; font-stretch: 118%; letter-spacing: -0.03em; }
+  .steps { list-style: none; margin: 36px 0 0; padding: 0; counter-reset: step; }
+  .step { counter-increment: step; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 0 16px; padding: 26px 0; border-top: 1px solid var(--rule); }
+  .step::before {
+    content: counter(step); width: 36px; height: 36px; border-radius: 50%;
+    border: 1.5px solid var(--ink-2); color: var(--ink-2); display: grid; place-items: center; font-weight: 700;
+  }
+  .step.done::before { content: "✓"; border-color: var(--credit); color: var(--credit); }
+  .step.active::before { border-color: var(--stamp); color: var(--stamp); background: var(--stamp-soft); }
+  .step h2 { font-size: 21px; font-stretch: 100%; }
+  .step p { margin: 6px 0 0; max-width: 40em; color: var(--ink-2); }
+  .step .act { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .result { margin-top: 14px; display: none; }
+  .result.shown { display: block; }
+  .verdict { font-weight: 650; margin: 0 0 10px; color: var(--ink); }
+  .verdict.good { color: var(--credit); }
+  .verdict.bad { color: var(--debit); }
+  .exchange { border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+  .exchange .req { background: var(--paper-2); padding: 10px 14px; font-size: 14px; }
+  .exchange .req b { font-weight: 700; }
+  .exchange .req .h { color: var(--ink-2); display: block; overflow-wrap: anywhere; }
+  .exchange pre { margin: 0; border-radius: 0; max-height: 280px; background: var(--paper); border-top: 1px solid var(--rule); }
+  .status { font-weight: 700; }
+  .status.s2 { color: var(--credit); } .status.s4, .status.s5 { color: var(--debit); }
+  table.ledger { border-collapse: collapse; margin-top: 12px; width: 100%; max-width: 560px; font-size: 15px; }
+  table.ledger th, table.ledger td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); }
+  table.ledger td.amt, table.ledger th.amt { text-align: right; }
+  table.ledger tfoot td { font-weight: 700; border-bottom: 0; }
+  label.amount { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+  label.amount input { font: 600 16px var(--sans); width: 110px; padding: 8px 10px; border: 1.5px solid var(--rule); border-radius: 6px; background: var(--paper); color: var(--ink); }
+  .banner { margin-top: 22px; padding: 14px 16px; border-left: 4px solid var(--stamp); background: var(--stamp-soft); border-radius: 0 6px 6px 0; max-width: 46em; }
+  .banner.err { border-color: var(--debit); background: var(--debit-soft); }
+  .banner p { margin: 0; }
+  .banner p + p { margin-top: 6px; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="bar">
+  <div class="wrap">
+    <a class="home" href="../../">Aman Raj Verma</a>
+    <nav aria-label="Main">
+      <a href="../../#projects">Projects</a>
+      <a href="../sentinel/">Sentinel replay</a>
+      <a href="https://github.com/ARV0007/transakt">Transakt code</a>
+      <button class="theme-toggle" type="button">Dark mode</button>
+    </nav>
+  </div>
+</div>
+
+<main id="main" class="wrap">
+  <div class="intro">
+    <h1>Try Transakt</h1>
+    <p class="lede">Six requests against the live API: wake it, sign up, take a payment, send it again by accident, read the ledger, then try a forged key. Each step shows the exact request and what came back.</p>
+    <div class="banner">
+      <p>This creates a real merchant and a pretend payment in Transakt's database. The page makes up the name, email and password; nothing about you is sent. The bank is simulated and declines about 1 payment in 10, like a real one sometimes would.</p>
+    </div>
+    <div class="banner err" id="unreachable" hidden>
+      <p><b>The browser couldn't reach the API.</b> It runs on a free plan and may still be starting, or redeploying. Wait a minute and press the button again.</p>
+      <p>You can always run the same steps from a terminal; the commands are in the <a href="https://github.com/ARV0007/transakt#try-it">README</a>.</p>
+    </div>
+  </div>
+
+  <ol class="steps">
+    <li class="step active" id="s1">
+      <div>
+        <h2>Wake the server</h2>
+        <p>Free hosting puts the API to sleep when nobody uses it. The first request can take up to a minute; after that it's quick.</p>
+        <div class="act"><button class="btn solid" data-run="wake">Check the API is up</button><span class="note" data-wait></span></div>
+        <div class="result"></div>
+      </div>
+    </li>
+    <li class="step" id="s2">
+      <div>
+        <h2>Sign up as a merchant</h2>
+        <p>The answer includes your API key. It's shown this once and stored only as a hash, so not even the database can show it again.</p>
+        <div class="act"><button class="btn solid" data-run="signup" disabled>Sign up</button></div>
+        <div class="result"></div>
+      </div>
+    </li>
+    <li class="step" id="s3">
+      <div>
+        <h2>Take a payment</h2>
+        <p>Amounts travel as whole paise, never as decimals, so ₹500 is <code>50000</code>. The request carries an <code>Idempotency-Key</code>: a name for this one attempt.</p>
+        <div class="act">
+          <label class="amount">₹ <input id="rupees" type="number" min="1" max="100000" step="1" value="500" inputmode="numeric" aria-label="Amount in rupees"></label>
+          <button class="btn solid" data-run="pay" disabled>Create payment</button>
+        </div>
+        <div class="result"></div>
+      </div>
+    </li>
+    <li class="step" id="s4">
+      <div>
+        <h2>Send it again, as a retry would</h2>
+        <p>A phone loses signal and the app resends. Same request, same <code>Idempotency-Key</code>. A gateway without protection would charge twice.</p>
+        <div class="act"><button class="btn solid" data-run="retry" disabled>Send the same request again</button></div>
+        <div class="result"></div>
+      </div>
+    </li>
+    <li class="step" id="s5">
+      <div>
+        <h2>Read the ledger</h2>
+        <p>Every captured payment writes two entries that must cancel out: money in at the gateway, money owed to you. Entries are only ever added, never edited.</p>
+        <div class="act"><button class="btn solid" data-run="ledger" disabled>Show the ledger entries</button></div>
+        <div class="result"></div>
+      </div>
+    </li>
+    <li class="step" id="s6">
+      <div>
+        <h2>Try a forged key</h2>
+        <p>Keep the first 8 characters of your key, which is how Transakt looks it up, and change the rest. The lookup finds you; the hash check still refuses.</p>
+        <div class="act"><button class="btn solid" data-run="forge" disabled>Send with a forged key</button></div>
+        <div class="result"></div>
+      </div>
+    </li>
+  </ol>
+
+  <p class="note" style="margin-top:28px">How it works: <a href="https://github.com/ARV0007/transakt/blob/main/docs/notes.md">design notes</a>. The API only lets this one site call it from a browser; curl works from anywhere.</p>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><a href="../../">Back to the portfolio</a></span>
+    <span>API: transakt.onrender.com</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var API = "https://transakt.onrender.com/api/v1";
+  var state = { apiKey: null, merchantId: null, idemKey: null, payment: null };
+
+  function rand(n) {
+    var a = new Uint8Array(n); crypto.getRandomValues(a);
+    return Array.from(a, function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+  }
+  function rupees(paise) { return "₹" + (paise / 100).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function el(tag, attrs, text) {
+    var e = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  async function call(method, path, headers, body) {
+    var opts = { method: method, headers: Object.assign({}, headers || {}) };
+    if (body !== undefined) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+    var started = performance.now();
+    var res;
+    try {
+      res = await fetch(API + path, opts);
+    } catch (e) {
+      document.getElementById("unreachable").hidden = false;
+      throw e;
+    }
+    document.getElementById("unreachable").hidden = true;
+    var text = await res.text();
+    var json = null;
+    try { json = text ? JSON.parse(text) : null; } catch (e) {}
+    return { method: method, path: path, headers: opts.headers, body: body, status: res.status,
+             ms: Math.round(performance.now() - started), json: json, text: text,
+             retryAfter: res.headers.get("Retry-After") };
+  }
+
+  function exchange(r) {
+    var box = el("div", { class: "exchange" });
+    var req = el("div", { class: "req" });
+    var line = el("span");
+    line.appendChild(el("b", null, r.method + " "));
+    line.appendChild(document.createTextNode("/api/v1" + r.path + "  "));
+    var st = el("span", { class: "status s" + String(r.status)[0] }, "→ " + r.status);
+    line.appendChild(st);
+    line.appendChild(document.createTextNode("  in " + r.ms + " ms"));
+    req.appendChild(line);
+    Object.keys(r.headers).forEach(function (h) {
+      if (h === "Content-Type") return;
+      req.appendChild(el("span", { class: "h" }, h + ": " + r.headers[h]));
+    });
+    if (r.body !== undefined) req.appendChild(el("span", { class: "h" }, JSON.stringify(r.body)));
+    box.appendChild(req);
+    box.appendChild(el("pre", null, r.json ? JSON.stringify(r.json, null, 2) : (r.text || "(empty body)")));
+    return box;
+  }
+
+  function show(stepId, verdict, good, r, extra) {
+    var step = document.getElementById(stepId);
+    var out = step.querySelector(".result");
+    out.textContent = "";
+    out.appendChild(el("p", { class: "verdict " + (good ? "good" : "bad") }, verdict));
+    if (extra) out.appendChild(extra);
+    if (r) out.appendChild(exchange(r));
+    out.classList.add("shown");
+  }
+
+  function advance(fromId, toId) {
+    var from = document.getElementById(fromId);
+    from.classList.remove("active"); from.classList.add("done");
+    if (!toId) return;
+    var to = document.getElementById(toId);
+    to.classList.add("active");
+    var b = to.querySelector("button[data-run]"); b.disabled = false;
+  }
+
+  function limited(stepId, r) {
+    if (r.status !== 429) return false;
+    show(stepId, "Rate limited: Transakt allows 20 requests a minute per merchant. Wait " + (r.retryAfter || "a few") + " seconds and press again.", false, r);
+    return true;
+  }
+
+  var steps = {
+    wake: async function (btn) {
+      var wait = document.querySelector("[data-wait]");
+      var t0 = Date.now();
+      var timer = setInterval(function () { wait.textContent = "Waiting " + Math.round((Date.now() - t0) / 1000) + " s"; }, 1000);
+      try {
+        var r = await call("GET", "/health");
+        if (r.status === 200) { show("s1", "The API is up.", true, r); advance("s1", "s2"); }
+        else show("s1", "The API answered " + r.status + ". It may still be starting; press again in a moment.", false, r);
+      } finally { clearInterval(timer); wait.textContent = ""; }
+    },
+    signup: async function () {
+      var id = rand(4);
+      var r = await call("POST", "/merchants", null,
+        { name: "Demo visitor " + id, email: "demo-" + id + "-" + Date.now() + "@example.com", password: rand(12) });
+      if (r.status !== 200 || !r.json || !r.json.apiKey) { show("s2", "Sign-up didn't go through (" + r.status + ").", false, r); return; }
+      state.apiKey = r.json.apiKey; state.merchantId = r.json.id;
+      show("s2", "Signed up. Your API key starts " + state.apiKey.slice(0, 8) + " and is only in this page now.", true, r);
+      advance("s2", "s3");
+    },
+    pay: async function () {
+      var amount = Math.round(Number(document.getElementById("rupees").value));
+      if (!(amount >= 1 && amount <= 100000)) { show("s3", "Enter a whole number of rupees between 1 and 1,00,000.", false); return; }
+      state.idemKey = "demo-" + rand(6);
+      state.body = { amountPaise: amount * 100, currency: "INR" };
+      var r = await call("POST", "/payments", { "X-API-Key": state.apiKey, "Idempotency-Key": state.idemKey }, state.body);
+      if (limited("s3", r)) return;
+      if (r.status !== 200 || !r.json) { show("s3", "The payment request failed (" + r.status + ").", false, r); return; }
+      state.payment = r.json;
+      var captured = r.json.status === "CAPTURED";
+      show("s3", captured
+        ? "Payment " + r.json.id.slice(0, 8) + " captured: " + rupees(r.json.amountPaise) + "."
+        : "Payment " + r.json.id.slice(0, 8) + " came back " + r.json.status + ". The simulated bank declines some payments; that's handled, not an error.", captured, r);
+      document.getElementById("rupees").disabled = true;
+      advance("s3", "s4");
+    },
+    retry: async function () {
+      var r = await call("POST", "/payments", { "X-API-Key": state.apiKey, "Idempotency-Key": state.idemKey }, state.body);
+      if (limited("s4", r)) return;
+      var same = r.json && r.json.id === state.payment.id;
+      show("s4", same
+        ? "Same payment back: " + r.json.id.slice(0, 8) + ". One charge, not two. The key is held by a unique constraint in PostgreSQL, so even two retries arriving at the same instant can't both create a payment."
+        : "Got a different answer than expected (" + r.status + ").", same, r);
+      if (same) advance("s4", "s5");
+    },
+    ledger: async function () {
+      var r = await call("GET", "/payments/" + state.payment.id + "/ledger", { "X-API-Key": state.apiKey });
+      if (limited("s5", r)) return;
+      var rows = Array.isArray(r.json) ? r.json : [];
+      if (r.status !== 200) { show("s5", "Couldn't read the ledger (" + r.status + ").", false, r); return; }
+      if (!rows.length) {
+        show("s5", "No entries: the bank declined this payment, so no money moved and nothing was written. A ledger records what happened, not what was attempted.", true, r);
+        advance("s5", "s6"); return;
+      }
+      var t = el("table", { class: "ledger" });
+      var th = el("thead"); var hr = el("tr");
+      ["Account", "Direction", "Amount"].forEach(function (h, i) { hr.appendChild(el("th", i === 2 ? { class: "amt" } : null, h)); });
+      th.appendChild(hr); t.appendChild(th);
+      var tb = el("tbody"), net = 0;
+      rows.forEach(function (e) {
+        var tr = el("tr");
+        tr.appendChild(el("td", null, e.account.replace(state.merchantId, "you")));
+        tr.appendChild(el("td", null, e.direction));
+        tr.appendChild(el("td", { class: "amt" }, rupees(e.amountPaise)));
+        net += e.direction === "DEBIT" ? e.amountPaise : -e.amountPaise;
+        tb.appendChild(tr);
+      });
+      t.appendChild(tb);
+      var tf = el("tfoot"); var fr = el("tr");
+      fr.appendChild(el("td", { colspan: "2" }, "Debits minus credits"));
+      fr.appendChild(el("td", { class: "amt" }, rupees(net)));
+      tf.appendChild(fr); t.appendChild(tf);
+      show("s5", rows.length + " entries that balance to " + rupees(net) + ".", net === 0, r, t);
+      advance("s5", "s6");
+    },
+    forge: async function () {
+      var k = state.apiKey;
+      var forged = k.slice(0, 8) + Array.from(k.slice(8), function (c) { return c === "f" ? "e" : "f"; }).join("");
+      var r = await call("GET", "/payments?page=0&size=5", { "X-API-Key": forged });
+      var refused = r.status === 403;
+      show("s6", refused
+        ? "Refused with 403. The prefix found your account, the constant-time hash comparison rejected the key. That check runs on every request, cached or not."
+        : "Unexpected answer: " + r.status + ".", refused, r);
+      if (refused) advance("s6", null);
+    }
+  };
+
+  document.querySelectorAll("button[data-run]").forEach(function (btn) {
+    btn.addEventListener("click", async function () {
+      if (btn.disabled) return;
+      var label = btn.textContent;
+      btn.disabled = true; btn.textContent = "Sending…";
+      try { await steps[btn.getAttribute("data-run")](btn); }
+      catch (e) { /* the unreachable banner explains it */ }
+      finally {
+        btn.textContent = label;
+        var step = btn.closest(".step");
+        btn.disabled = step.classList.contains("done");
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>

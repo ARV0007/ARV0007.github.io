@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aman Raj Verma</title>
+<meta name="description" content="Backend engineer (Java, Spring Boot) who builds payment systems and LLM agents, and measures them. Live demos, write-ups and open-source fixes.">
+<meta property="og:title" content="Aman Raj Verma, backend engineer">
+<meta property="og:description" content="Payment systems, fraud agents and an AI app builder, each with a live demo and the numbers behind it.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arv0007.github.io/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+<script src="assets/theme.js"></script>
+<style>
+  .hero { padding: 72px 0 24px; }
+  .hero h1 {
+    font-size: clamp(44px, 8.4vw, 96px);
+    font-weight: 800;
+    font-stretch: 125%;
+    letter-spacing: -0.035em;
+    line-height: 0.95;
+  }
+  .hero .role { font-size: clamp(19px, 2.4vw, 23px); margin: 22px 0 0; max-width: 34em; }
+  .hero .role strong { font-weight: 650; }
+  .hero .where { color: var(--ink-2); margin: 10px 0 0; }
+
+  /* The record: one ruled passbook page. Every row links to where its number comes from. */
+  .record {
+    margin-top: 44px;
+    border: 1.5px solid var(--ink);
+    border-radius: 4px;
+    background:
+      repeating-linear-gradient(to bottom, transparent 0, transparent 43px, var(--rule) 43px, var(--rule) 44px),
+      var(--paper);
+    box-shadow: 6px 6px 0 var(--paper-2);
+  }
+  .record header {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding: 16px 20px 14px; border-bottom: 1.5px solid var(--ink); background: var(--paper);
+  }
+  .record header h2 { font-size: 22px; font-stretch: 100%; }
+  .record header p { margin: 0; color: var(--ink-2); font-size: 15px; }
+  .record table { width: 100%; border-collapse: collapse; }
+  .record th {
+    text-align: left; font-weight: 600; font-size: 14px; color: var(--ink-2);
+    padding: 10px 20px; border-bottom: 1px solid var(--ink); background: var(--paper);
+  }
+  .record td { padding: 14px 20px; vertical-align: top; border-bottom: 1px solid var(--rule); background: color-mix(in srgb, var(--paper) 88%, transparent); }
+  .record tr:last-child td { border-bottom: 0; }
+  .record td.where-col { font-weight: 650; white-space: nowrap; }
+  .record td.num { font-weight: 700; font-stretch: 88%; font-size: 19px; white-space: nowrap; color: var(--ink); }
+  .record td.num small { display: block; font-weight: 400; font-stretch: 100%; font-size: 13.5px; color: var(--ink-2); white-space: normal; }
+  .record td.proof a { white-space: nowrap; font-weight: 600; }
+  @media (max-width: 760px) {
+    .record { background: var(--paper); }
+    .record thead { display: none; }
+    .record tr { display: grid; grid-template-columns: 1fr auto; gap: 2px 14px; padding: 14px 16px; border-bottom: 1px solid var(--rule); }
+    .record tr:last-child { border-bottom: 0; }
+    .record td { padding: 0; border: 0; background: none; }
+    .record td.where-col { grid-column: 1; }
+    .record td.proof { grid-column: 2; grid-row: 1; text-align: right; }
+    .record td.what { grid-column: 1 / -1; color: var(--ink-2); }
+    .record td.num { grid-column: 1 / -1; margin-top: 4px; }
+  }
+
+  /* Projects: a long row each, not a card grid. */
+  .project { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px 48px; padding: 36px 0; border-top: 1px solid var(--rule); }
+  .project:first-of-type { border-top: 0; padding-top: 12px; }
+  .project h3 { font-size: 26px; font-weight: 750; font-stretch: 112%; }
+  .project .kind { color: var(--ink-2); margin: 6px 0 14px; }
+  .project p { margin: 0 0 12px; max-width: 36em; }
+  .project ul { margin: 0; padding: 0; list-style: none; }
+  .project li { padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: 15.5px; }
+  .project li:last-child { border-bottom: 0; }
+  .project li b { font-weight: 700; }
+  .project .stack { margin-top: 14px; font-size: 14.5px; color: var(--ink-2); }
+  @media (max-width: 760px) { .project { grid-template-columns: 1fr; } }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 48px; }
+  .entry h3 { font-size: 20px; }
+  .entry .meta { color: var(--ink-2); margin: 4px 0 10px; font-size: 15px; }
+  .entry p { margin: 0 0 10px; }
+  .entry ul { margin: 0; padding-left: 1.1em; }
+  .entry li { margin-bottom: 6px; }
+  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+
+  .contact { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="bar">
+  <div class="wrap">
+    <a class="home" href="./">Aman Raj Verma</a>
+    <nav aria-label="Main">
+      <a href="#projects">Projects</a>
+      <a href="#open-source">Open source</a>
+      <a href="#experience">Experience</a>
+      <a href="resume.pdf">Resume</a>
+      <button class="theme-toggle" type="button">Dark mode</button>
+    </nav>
+  </div>
+</div>
+
+<main id="main">
+  <div class="wrap hero">
+    <h1>Aman Raj<br>Verma</h1>
+    <p class="role"><strong>Backend engineer, Java and Spring Boot.</strong> I build payment systems and LLM agents, and I don't call something done until a test or a benchmark says so.</p>
+    <p class="where">M.Tech CSE at ABV-IIITM Gwalior, graduating 2027. Software engineering intern at Stryker.</p>
+    <div class="links">
+      <a class="btn solid" href="resume.pdf">Download resume (PDF)</a>
+      <a class="btn" href="mailto:amanrajverma003@gmail.com">Email me</a>
+      <a class="btn" href="https://github.com/ARV0007">GitHub</a>
+      <a class="btn" href="https://www.linkedin.com/in/arv14">LinkedIn</a>
+    </div>
+
+    <div class="record" role="region" aria-labelledby="record-title">
+      <header>
+        <h2 id="record-title">The record</h2>
+        <p>Each number links to the test, run or pull request that produced it.</p>
+      </header>
+      <table>
+        <thead><tr><th scope="col">Where</th><th scope="col">What changed</th><th scope="col">Measured</th><th scope="col">Proof</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="where-col">Mockito</td>
+            <td class="what">An <code>ArgumentCaptor</code> under <code>after()</code> stored every call again on each poll. Open since 2016 (#345).</td>
+            <td class="num">3 values, not 13,845,153<small>after(200).times(3), three calls</small></td>
+            <td class="proof"><a href="https://github.com/mockito/mockito/pull/3859">PR #3859</a></td>
+          </tr>
+          <tr>
+            <td class="where-col">Apache Kafka</td>
+            <td class="what"><code>KafkaProducer.close(timeout)</code> could wait forever behind a callback that never returned (KAFKA-9998).</td>
+            <td class="num">Bounded by max.block.ms<small>two new tests, one per timeout path</small></td>
+            <td class="proof"><a href="https://github.com/apache/kafka/pull/23926">PR #23926</a></td>
+          </tr>
+          <tr>
+            <td class="where-col">Transakt</td>
+            <td class="what">API key lookups cached in Redis, with the hash check still run on every request.</td>
+            <td class="num">About 3x faster<small>p50 lookup, Postgres vs Redis, in CI</small></td>
+            <td class="proof"><a href="https://github.com/ARV0007/transakt/pull/1">Benchmark</a></td>
+          </tr>
+          <tr>
+            <td class="where-col">Sentinel</td>
+            <td class="what">ML scorer plus an agent that investigates flagged payments, graded against planted fraud.</td>
+            <td class="num">6 of 6 incidents, 0 false cases<small>simulated run, 150 payments</small></td>
+            <td class="proof"><a href="demos/sentinel/">Replay it</a></td>
+          </tr>
+          <tr>
+            <td class="where-col">Sentinel</td>
+            <td class="what">Two replicas updating one merchant's history at once, through an atomic Redis Lua script.</td>
+            <td class="num">200 of 200 kept<small>a plain read-then-write kept 2</small></td>
+            <td class="proof"><a href="https://github.com/ARV0007/transakt-sentinel/blob/main/services/risk-scorer/tests/test_state.py">Test</a></td>
+          </tr>
+          <tr>
+            <td class="where-col">ForgeFlow</td>
+            <td class="what">Hybrid code search (vector plus full-text, rank fusion, rerank) on a 70-question benchmark I wrote.</td>
+            <td class="num">87% first, 99% in top 3<small>keyword-only: 63% / 79%</small></td>
+            <td class="proof"><a href="https://github.com/ARV0007/forgeflow#measured">Eval</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <section id="projects" aria-labelledby="projects-title">
+    <div class="wrap">
+      <h2 id="projects-title">Projects</h2>
+      <p class="sub">Each one runs. Two you can use right now; the third replays a real recorded run, because it needs Kafka and three services that free hosting can't keep up.</p>
+
+      <article class="project">
+        <div>
+          <h3>Transakt</h3>
+          <p class="kind">A payment gateway, built from scratch in Spring Boot</p>
+          <p>Merchants sign up, get an API key and create payments. The hard parts are the ones you only notice when they go wrong: a retried request must not charge twice, money must never be a float, and an event must reach the merchant even if Kafka was down when the payment settled.</p>
+          <div class="links">
+            <a class="btn solid" href="demos/transakt/">Try it in your browser</a>
+            <a class="btn" href="https://github.com/ARV0007/transakt">Code</a>
+            <a class="btn" href="https://github.com/ARV0007/transakt/blob/main/docs/notes.md">Design notes</a>
+          </div>
+        </div>
+        <div>
+          <ul>
+            <li>Idempotency keys enforced by a <b>PostgreSQL unique constraint</b>, so concurrent retries return the same payment.</li>
+            <li>Money kept as <b>integer paise</b> in an append-only double-entry ledger.</li>
+            <li>Transactional outbox to Kafka, then webhooks with retries and a dead-letter topic.</li>
+            <li>Hashed API keys or JWTs, per-merchant rate limits, Redis-cached key lookups that fall back to Postgres.</li>
+          </ul>
+          <p class="stack">Java, Spring Boot, Spring Security, PostgreSQL, Redis, Kafka, Flyway, GitHub Actions, Render</p>
+        </div>
+      </article>
+
+      <article class="project">
+        <div>
+          <h3>Sentinel</h3>
+          <p class="kind">Fraud investigation for Transakt, with a person making the call</p>
+          <p>Three Python services sit beside Transakt without changing a line of it. A small ML model scores every settled payment in about a millisecond. The few it flags go to a LangGraph agent, whose specialists gather evidence through read-only MCP tools and recommend an action. An analyst decides, and that decision becomes training data.</p>
+          <div class="links">
+            <a class="btn solid" href="demos/sentinel/">Watch the replay</a>
+            <a class="btn" href="https://github.com/ARV0007/transakt-sentinel">Code</a>
+          </div>
+        </div>
+        <div>
+          <ul>
+            <li>Graded against planted, labelled fraud: <b>6 of 6</b> incidents with a case, <b>0</b> cases on honest merchants.</li>
+            <li>Only <b>3–4%</b> of payments reach the agent; the rest never touch an LLM.</li>
+            <li>Every number in a written recommendation is checked against the evidence before it is shown.</li>
+            <li>Batched Kafka polls took Redis-backed scoring from <b>355 to 3,505</b> payments a second.</li>
+          </ul>
+          <p class="stack">Python, FastAPI, LangGraph, MCP, A2A, scikit-learn, Kafka, Redis, Prometheus, Grafana</p>
+        </div>
+      </article>
+
+      <article class="project">
+        <div>
+          <h3>ForgeFlow</h3>
+          <p class="kind">An AI app builder in Java, in the spirit of Lovable</p>
+          <p>Describe an app or paste a screenshot and get a running app back, then keep changing it by conversation. The agent isn't allowed to finish until its code passes a build; if it fails, the errors go back to the agent to fix. A reviewer agent reads the diff and can send work back.</p>
+          <div class="links">
+            <a class="btn solid" href="https://forgeflow-7m08.onrender.com">Open the live app</a>
+            <a class="btn" href="https://github.com/ARV0007/forgeflow">Code</a>
+          </div>
+          <p class="note">Hosted on a free plan, so the first load can take about a minute while it wakes up.</p>
+        </div>
+        <div>
+          <ul>
+            <li><b>20 of 20</b> apps on a golden eval set build and pass, in 3 runs out of 3, at about 11 s and $0.003 each.</li>
+            <li>Follow-up requests land as targeted edits, not rewrites: <b>5 of 5</b>.</li>
+            <li>No AI framework: the agent loop, tool calling and retrieval are written by hand.</li>
+            <li><b>290 tests</b> against real Postgres, Redis, Qdrant and S3 on every push.</li>
+          </ul>
+          <p class="stack">Java 21, Spring Boot 4, Gemini API, PostgreSQL, pgvector, Qdrant, Redis, Kafka, S3, Docker, Kubernetes</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section id="open-source" aria-labelledby="oss-title">
+    <div class="wrap">
+      <h2 id="oss-title">Open source</h2>
+      <p class="sub">Two fixes to libraries a lot of Java code depends on. Both are open pull requests under review.</p>
+      <div class="two">
+        <div class="entry">
+          <h3><a href="https://github.com/mockito/mockito/pull/3859">Mockito #3859</a></h3>
+          <p class="meta">Fixes issue #345, open since 2016</p>
+          <p>Verifying with <code>after()</code> polled in a loop, and every poll captured the same arguments again, so a captor could fill with millions of copies. The fix waits for an invocation instead of polling and captures each one once. The project's lead maintainer suggested that direction in review.</p>
+        </div>
+        <div class="entry">
+          <h3><a href="https://github.com/apache/kafka/pull/23926">Apache Kafka #23926</a></h3>
+          <p class="meta">Fixes KAFKA-9998</p>
+          <p>After a forced close, the producer joined its I/O thread with no timeout, so a callback that blocked that thread made <code>close(timeout)</code> hang. The wait is now capped at <code>max.block.ms</code> with a warning, and <code>Thread.join(0)</code>, which means "wait forever", is no longer called when time has run out.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="experience" aria-labelledby="exp-title">
+    <div class="wrap">
+      <h2 id="exp-title">Experience and education</h2>
+      <p class="sub">I came to computer science from mechanical engineering, by qualifying GATE CS.</p>
+      <div class="two">
+        <div class="entry">
+          <h3>Stryker</h3>
+          <p class="meta">Software engineering intern, May 2026 to now. Wearable activity and posture recognition, with ABV-IIITM.</p>
+          <ul>
+            <li>Built a human activity recognition pipeline in Python (PyTorch, scikit-learn, 1D CNN, HMM) on 4 public datasets, about 200 people and 3,900 hours.</li>
+            <li>Planned all 7 experiments up front, tested leave-one-subject-out, with bootstrap confidence intervals.</li>
+            <li>Showed a gyroscope adds 5.6 points of macro F1, and that 20 Hz sampling loses nothing measurable against 100 Hz.</li>
+          </ul>
+        </div>
+        <div class="entry">
+          <h3>ABV-IIITM Gwalior</h3>
+          <p class="meta">M.Tech, Computer Science and Engineering, 2025 to 2027</p>
+          <p>Machine learning, deep learning, algorithms, operating systems, databases, networks.</p>
+          <h3 style="margin-top:22px">MMMUT Gorakhpur</h3>
+          <p class="meta">B.Tech, Mechanical Engineering, 2020 to 2024</p>
+        </div>
+      </div>
+      <div class="contact">
+        <a class="btn solid" href="mailto:amanrajverma003@gmail.com">amanrajverma003@gmail.com</a>
+        <a class="btn" href="resume.pdf">Resume (PDF)</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Aman Raj Verma, Gwalior, India</span>
+    <span><a href="https://github.com/ARV0007">GitHub</a>&nbsp;&nbsp; <a href="https://www.linkedin.com/in/arv14">LinkedIn</a>&nbsp;&nbsp; <a href="https://github.com/ARV0007/arv0007.github.io">Source of this site</a></span>
+  </div>
+</footer>
+</body>
+</html>
