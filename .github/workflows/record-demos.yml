@@ -1,0 +1,44 @@
+name: Record demo GIFs
+
+# Opens the Transakt demo page in a real browser, clicks through every step against the
+# live API, and commits the recording as a GIF to assets/demo/. Run by hand when the demo changes.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'tools/record-transakt-demo.js'
+      - '.github/workflows/record-demos.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.48.2
+          npx playwright install --with-deps chromium
+      - name: Record the Transakt demo against the live API
+        run: node tools/record-transakt-demo.js | tee tools/out-log.txt
+      - name: Convert to GIF
+        run: |
+          sudo apt-get install -y ffmpeg >/dev/null
+          mkdir -p assets/demo
+          v=$(ls tools/out/video/*.webm | head -1)
+          ffmpeg -y -loglevel error -i "$v" -vf "fps=8,scale=760:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" assets/demo/transakt-demo.gif
+          cp tools/out/transakt-demo-full.png assets/demo/transakt-demo-full.png
+          ls -la assets/demo
+      - name: Commit the recording
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/demo
+          git commit -m "Record the Transakt demo against the live API" -m "$(cat tools/out-log.txt)" || echo "nothing to commit"
+          git push
