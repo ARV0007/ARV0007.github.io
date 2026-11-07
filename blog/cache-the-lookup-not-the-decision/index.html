@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cache the lookup, never the decision</title>
+<meta name="description" content="Adding a Redis cache in front of API key authentication in Transakt, my payment gateway. The rule that made it safe, the short list of ways an entry can go stale, and how to prove a request really came from the cache.">
+<meta property="og:title" content="Cache the lookup, never the decision">
+<meta property="og:description" content="Adding a Redis cache in front of API key authentication in Transakt, my payment gateway. The rule that made it safe, the short list of ways an entry can go stale, and how to prove a request really came from the cache.">
+<meta property="og:type" content="article">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Literata:ital,opsz,wght@0,7..72,400..700;1,7..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/site.css">
+<link rel="stylesheet" href="../../assets/blog.css">
+<script src="../../assets/theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="bar">
+  <div class="wrap">
+    <a class="home" href="../../">Aman Raj Verma</a>
+    <nav aria-label="Main">
+      <a href="../../#projects">Projects</a>
+      <a href="../../blog/">Writing</a>
+      <a href="../../resume.pdf">Resume</a>
+      <button class="theme-toggle" type="button">Dark mode</button>
+    </nav>
+  </div>
+</div>
+
+<main id="main" class="wrap">
+  <article class="post">
+    <header>
+      <p class="meta"><a href="../">Writing</a>, 7 November 2026, 4 min read</p>
+      <h1>Cache the lookup, never the decision</h1>
+      <p class="standfirst">Adding a Redis cache in front of API key authentication in Transakt, my payment gateway. The rule that made it safe, the short list of ways an entry can go stale, and how to prove a request really came from the cache.</p>
+    </header>
+    <div class="prose">
+<p>Every request to <a href="https://github.com/ARV0007/transakt">Transakt</a> that carries an <code>X-API-Key</code> header starts the same way: find the merchant the key belongs to. That was a PostgreSQL query, and in production the database is Neon, reached over the public internet. Redis, meanwhile, sits on Render's private network right next to the app.</p>
+<p>API keys get read on every call and almost never change. That's exactly what a cache is for. But this cache sits in front of authentication, so "a bit stale sometimes" isn't automatically fine. Before writing any code I wanted to know exactly when it could be wrong.</p>
+<h2>How the key check works</h2>
+<p>A Transakt key looks like <code>tk_ab12cd34...</code>. The first 8 characters are a prefix stored in plain text, so it can be looked up. The full key is never stored, only its SHA-256 hash. To authenticate, the filter finds the merchant by prefix, hashes the key it was given, and compares the two hashes in constant time.</p>
+<p>The slow part is the lookup by prefix. The decision is the comparison.</p>
+<h2>The rule: cache the lookup, never the decision</h2>
+<p>The cache stores what the lookup returns: merchant id, role and the stored hash, under <code>apikey:&lt;prefix&gt;</code>, for five minutes. It never stores "this key is valid".</p>
+<p>In outline, the filter does this:</p>
+<pre><code class="language-java">CachedPrincipal principal = apiKeyCache.get(prefix)
+        .or(() -&gt; lookUpInDatabase(prefix))   // and cache what it finds
+        .orElse(null);
+
+if (principal != null &amp;&amp; ApiKeyHasher.matches(apiKey, principal.apiKeyHash())) {
+    // authenticated as principal.merchantId()
+}
+</code></pre>
+<p>The hash comparison runs on every request, cached or not. So the cache can save a database query, but it can never let a wrong key through. That was the line I didn't want to cross. The raw key isn't stored anywhere, cache included.</p>
+<h2>The list of ways an entry goes stale</h2>
+<p>For any cache, the real design work is listing what can make an entry wrong. For this one the list is short:</p>
+<table>
+<thead>
+<tr>
+<th>What changes</th>
+<th>Can it make an entry wrong?</th>
+<th>Handled by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The key's hash</td>
+<td>No, it's written once at signup</td>
+<td></td>
+</tr>
+<tr>
+<td>Role, through the API</td>
+<td>No, no endpoint changes a role</td>
+<td></td>
+</tr>
+<tr>
+<td>Role, edited by hand in psql</td>
+<td>Yes</td>
+<td>The 5-minute TTL</td>
+</tr>
+<tr>
+<td>Merchant deleted</td>
+<td>Yes</td>
+<td>Evicted on delete</td>
+</tr>
+</tbody>
+</table>
+<p>Writing that table down was most of the design. It also tells you what to do later: if someone adds an endpoint that changes roles, it has to evict too. I wrote that into the docs as a known limitation, so it doesn't depend on someone remembering.</p>
+<h2>Three decisions that weren't obvious</h2>
+<p><strong>Evict twice on delete.</strong> Deleting a merchant evicts its entry before the database delete and again after. Why both? A request that read the row just before the delete could write it back into the cache just after the first eviction. Without the second one, a deleted merchant's key could keep working for up to five minutes.</p>
+<p><strong>Don't cache "not found".</strong> Caching misses would save database work when someone sprays random prefixes, but it would also refuse a brand-new key until the cached miss expired. Spraying random prefixes is the rate limiter's problem, not the cache's.</p>
+<p><strong>Fail open.</strong> If Redis is down, every lookup is a cache miss and the filter goes to Postgres, exactly as before the cache existed. A cache outage should cost latency, never availability. The rate limiter already worked this way.</p>
+<h2>Proving a request came from the cache</h2>
+<p>From outside, a cache hit and a database lookup look identical: same 200, same body. So how do you test that the second request actually used the cache?</p>
+<p>You break the database copy in between:</p>
+<ol>
+<li>Sign up, call <code>/merchants/me</code> with the key. That fills the cache.</li>
+<li>Overwrite the stored hash in Postgres with 64 zeros.</li>
+<li>Call again with the same key.</li>
+</ol>
+<p>If the second call still authenticates, Postgres wasn't asked, because the database copy can no longer match anything. The other tests cover the rest: a forged key with a real prefix gets 403 even when the entry is cached, deleting a merchant removes the entry and refuses its key at once, and an unknown prefix is never cached.</p>
+<p>One thing that caught me: these tests use <code>@Transactional</code>, which rolls back Postgres after each test. It doesn't roll back Redis. Without flushing Redis before each test, one test's cache entries leak into the next.</p>
+<h2>What it saved</h2>
+<p>A benchmark runs on every pull request that touches the cache, and posts its numbers back on the PR. Two runs on GitHub Actions, Postgres and Redis as local containers:</p>
+<table>
+<thead>
+<tr>
+<th>Median (p50)</th>
+<th>Run 1</th>
+<th>Run 2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lookup from Postgres</td>
+<td>407 µs</td>
+<td>520 µs</td>
+</tr>
+<tr>
+<td>Lookup from Redis</td>
+<td>115 µs</td>
+<td>182 µs</td>
+</tr>
+<tr>
+<td>Whole request, cache cold</td>
+<td>1,377 µs</td>
+<td>1,753 µs</td>
+</tr>
+<tr>
+<td>Whole request, cache warm</td>
+<td>617 µs</td>
+<td>797 µs</td>
+</tr>
+</tbody>
+</table>
+<p>So the lookup itself is about 3x faster, and a whole authenticated request takes roughly 55% less time warm than cold. Two honest caveats. The cold path includes writing the entry into the cache, which flatters the comparison a little. And in CI both stores are on localhost, while in production Postgres is across the internet, so the real saving is probably bigger. I haven't measured that yet.</p>
+<h2>What I took from it</h2>
+<p>Before adding a cache, list everything that can make an entry wrong. If you can't write that list, you're not ready to add it. And when the cache sits next to a security check, keep the check out of the cache entirely.</p>
+<p>The change is <a href="https://github.com/ARV0007/transakt/pull/1">PR #1</a>, with the benchmark output in the comments. You can also <a href="/demos/transakt/">try Transakt in your browser</a>, including a forged key.</p>
+    </div>
+  </article>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><a href="../../">Aman Raj Verma</a></span>
+    <span><a href="mailto:amanrajverma003@gmail.com">amanrajverma003@gmail.com</a>&nbsp;&nbsp; <a href="https://github.com/ARV0007">GitHub</a></span>
+  </div>
+</footer>
+</body>
+</html>

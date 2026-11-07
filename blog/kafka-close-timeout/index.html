@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>When close(timeout) doesn&#x27;t time out</title>
+<meta name="description" content="KafkaProducer.close(Duration) could block forever if a send callback got stuck. A small fix to Apache Kafka, and the Thread.join(0) trap hiding next to it.">
+<meta property="og:title" content="When close(timeout) doesn&#x27;t time out">
+<meta property="og:description" content="KafkaProducer.close(Duration) could block forever if a send callback got stuck. A small fix to Apache Kafka, and the Thread.join(0) trap hiding next to it.">
+<meta property="og:type" content="article">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Literata:ital,opsz,wght@0,7..72,400..700;1,7..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/site.css">
+<link rel="stylesheet" href="../../assets/blog.css">
+<script src="../../assets/theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="bar">
+  <div class="wrap">
+    <a class="home" href="../../">Aman Raj Verma</a>
+    <nav aria-label="Main">
+      <a href="../../#projects">Projects</a>
+      <a href="../../blog/">Writing</a>
+      <a href="../../resume.pdf">Resume</a>
+      <button class="theme-toggle" type="button">Dark mode</button>
+    </nav>
+  </div>
+</div>
+
+<main id="main" class="wrap">
+  <article class="post">
+    <header>
+      <p class="meta"><a href="../">Writing</a>, 7 November 2026, 3 min read</p>
+      <h1>When close(timeout) doesn&#x27;t time out</h1>
+      <p class="standfirst">KafkaProducer.close(Duration) could block forever if a send callback got stuck. A small fix to Apache Kafka, and the Thread.join(0) trap hiding next to it.</p>
+    </header>
+    <div class="prose">
+<p><code>KafkaProducer.close(Duration timeout)</code> reads like a promise: wait up to this long for pending sends, then give up and return. Shutdown code relies on that. If a service gets 30 seconds to stop and the producer close takes forever, the process gets killed instead of shutting down cleanly.</p>
+<p><a href="https://issues.apache.org/jira/browse/KAFKA-9998">KAFKA-9998</a> is a case where the promise breaks. My fix is <a href="https://github.com/apache/kafka/pull/23926">apache/kafka#23926</a>.</p>
+<h2>How it hangs</h2>
+<p>The producer sends records on a background I/O thread. When a send finishes, or fails, the producer runs your callback on that same thread.</p>
+<p>When the timeout runs out before pending sends are done, <code>close()</code> force-closes the producer. The I/O thread then fails every pending record and runs each record's callback. After that, <code>close()</code> waited for the I/O thread to stop:</p>
+<pre><code class="language-java">this.ioThread.join();
+</code></pre>
+<p>No timeout. If a callback blocks (waiting on a lock, a full queue, a slow network call), the I/O thread can't stop, and <code>close()</code> waits with it. You asked for 100 ms and got forever.</p>
+<h2>The trap next to it</h2>
+<p>While reading that method I found a second way to wait forever, one line up:</p>
+<pre><code class="language-java">this.ioThread.join(closeTimer.remainingMs());
+</code></pre>
+<p>This looks bounded. But <code>Thread.join(long millis)</code> has a special case: <strong><code>join(0)</code> means wait forever</strong>, not "don't wait". When the close timer has already run out, <code>remainingMs()</code> is 0, and the bounded wait silently becomes an unbounded one. It's documented, but easy to miss.</p>
+<h2>The fix</h2>
+<p>Two small private methods in <code>KafkaProducer</code>:</p>
+<pre><code class="language-java">private void joinIoThread(long timeoutMs) throws InterruptedException {
+    if (timeoutMs &gt; 0) {
+        this.ioThread.join(timeoutMs);
+    }
+}
+
+private void joinIoThreadAfterForceClose() throws InterruptedException {
+    joinIoThread(maxBlockTimeMs);
+    if (this.ioThread.isAlive()) {
+        log.warn(&quot;The producer I/O thread did not stop within {} ms ({}) after the producer was force closed, &quot; +
+                &quot;possibly because a callback is blocking it. Continuing to close without waiting for it.&quot;,
+                maxBlockTimeMs, ProducerConfig.MAX_BLOCK_MS_CONFIG);
+    }
+}
+</code></pre>
+<p><code>joinIoThread</code> makes "zero" mean zero. <code>joinIoThreadAfterForceClose</code> caps the wait after a forced close at <code>max.block.ms</code>, the setting that already decides how long producer methods may block. If the thread is still alive after that, it logs a warning that names the likely cause and moves on.</p>
+<p>Why not keep waiting? Because nothing good comes of it. The producer has been force-closed; the records are already failed. The only thing left is a stuck callback, and that's the application's bug to find. The warning tells them where to look, which a silent hang never did.</p>
+<p>Why not simply stop at the close timeout? Because in the normal case the forced close finishes in milliseconds, and waiting for it means every callback has run by the time <code>close()</code> returns. Code may rely on that. A separate, bounded wait keeps that behaviour when nothing is stuck.</p>
+<h2>Testing a hang</h2>
+<p>You can't write a test that waits forever to prove something doesn't wait forever. So the test builds the hang on purpose and puts a ceiling on how long it's willing to watch:</p>
+<ol>
+<li>A producer pointed at a mock client that never answers, with <code>max.block.ms</code> set to 500.</li>
+<li>Send a record whose callback signals that it started, then blocks on a latch.</li>
+<li>Call <code>close(timeout)</code> on another thread.</li>
+<li>Wait for the callback to start, which proves the forced close ran it.</li>
+<li>Expect <code>close()</code> to return within 10 seconds. Before the fix, it never does.</li>
+</ol>
+<p>There are two versions of that test, one with a 100 ms close timeout and one with zero, to cover both <code>join</code> calls. A third test checks the normal path: a forced close with a callback that doesn't block still runs the callback before <code>close()</code> returns, so the fix didn't trade one surprise for another.</p>
+<h2>What I took from it</h2>
+<p>A timeout parameter is only as good as every wait underneath it. One unbounded <code>join()</code> deep inside makes the whole method unbounded, and an API that sometimes ignores its timeout is worse than one without a timeout, because people stop planning for the hang.</p>
+<p>And <code>join(0)</code> goes on my list of APIs where zero means the opposite of what you'd guess.</p>
+<p>The PR is open for review.</p>
+    </div>
+  </article>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><a href="../../">Aman Raj Verma</a></span>
+    <span><a href="mailto:amanrajverma003@gmail.com">amanrajverma003@gmail.com</a>&nbsp;&nbsp; <a href="https://github.com/ARV0007">GitHub</a></span>
+  </div>
+</footer>
+</body>
+</html>

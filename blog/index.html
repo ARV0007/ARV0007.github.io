@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Writing</title>
+<meta name="description" content="Notes on bugs I fixed and systems I built: what broke, why, and how I proved the fix.">
+<meta property="og:title" content="Writing">
+<meta property="og:description" content="Notes on bugs I fixed and systems I built: what broke, why, and how I proved the fix.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Literata:ital,opsz,wght@0,7..72,400..700;1,7..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/site.css">
+<link rel="stylesheet" href="../assets/blog.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="bar">
+  <div class="wrap">
+    <a class="home" href="../">Aman Raj Verma</a>
+    <nav aria-label="Main">
+      <a href="../#projects">Projects</a>
+      <a href="../blog/" aria-current="page">Writing</a>
+      <a href="../resume.pdf">Resume</a>
+      <button class="theme-toggle" type="button">Dark mode</button>
+    </nav>
+  </div>
+</div>
+
+<main id="main" class="wrap">
+  <div class="list-head">
+    <h1>Writing</h1>
+    <p class="lede">Notes on bugs I fixed and systems I built: what broke, why, and how I proved the fix.</p>
+  </div>
+  <ul class="posts">
+    <li>
+      <a href="kafka-close-timeout/"><h2>When close(timeout) doesn&#x27;t time out</h2></a>
+      <p>KafkaProducer.close(Duration) could block forever if a send callback got stuck. A small fix to Apache Kafka, and the Thread.join(0) trap hiding next to it.</p>
+      <p class="meta">7 November 2026, 3 min read</p>
+    </li>
+    <li>
+      <a href="cache-the-lookup-not-the-decision/"><h2>Cache the lookup, never the decision</h2></a>
+      <p>Adding a Redis cache in front of API key authentication in Transakt, my payment gateway. The rule that made it safe, the short list of ways an entry can go stale, and how to prove a request really came from the cache.</p>
+      <p class="meta">7 November 2026, 4 min read</p>
+    </li>
+    <li>
+      <a href="redis-lua-200-payments/"><h2>200 payments in, 2 counted</h2></a>
+      <p>Two replicas of Sentinel&#x27;s fraud scorer updating one merchant&#x27;s history in Redis at the same time. Why a read-then-write lost 198 of 200 updates, how one Lua script fixed it, and how pipelining made it 10x faster without breaking it.</p>
+      <p class="meta">7 November 2026, 4 min read</p>
+    </li>
+  </ul>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><a href="../">Aman Raj Verma</a></span>
+    <span><a href="mailto:amanrajverma003@gmail.com">amanrajverma003@gmail.com</a>&nbsp;&nbsp; <a href="https://github.com/ARV0007">GitHub</a></span>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,36 @@
+/* Long-form reading: Literata body, Archivo for headings and furniture. */
+
+.post { max-width: 42rem; margin: 0 auto; padding: 56px 0 0; }
+.post header { margin-bottom: 36px; }
+.post .meta { color: var(--ink-2); font-size: 15px; margin: 0 0 14px; }
+.post .meta a { color: var(--ink-2); }
+.post h1 { font-size: clamp(34px, 5.4vw, 52px); font-weight: 800; font-stretch: 108%; letter-spacing: -0.03em; line-height: 1.04; }
+.post .standfirst { font-size: 20px; color: var(--ink-2); margin: 16px 0 0; line-height: 1.45; }
+
+.prose { font-family: var(--serif); font-size: 18.5px; line-height: 1.72; }
+.prose p, .prose ul, .prose ol, .prose table, .prose pre { margin: 0 0 1.15em; }
+.prose h2 { font-size: 25px; font-stretch: 104%; margin: 1.9em 0 0.55em; }
+.prose h3 { font-size: 20px; margin: 1.6em 0 0.5em; }
+.prose li { margin-bottom: 0.4em; }
+.prose code { font-size: 0.82em; }
+.prose pre { font-size: 14.5px; line-height: 1.55; }
+.prose strong { font-weight: 650; }
+.prose table { border-collapse: collapse; width: 100%; font-family: var(--sans); font-size: 15.5px; line-height: 1.45; display: block; overflow-x: auto; }
+.prose th, .prose td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.prose th { font-weight: 650; border-bottom-color: var(--ink); }
+.prose blockquote { margin: 0 0 1.15em; padding-left: 16px; border-left: 3px solid var(--stamp); color: var(--ink-2); }
+
+.list-head { padding: 56px 0 12px; }
+.list-head h1 { font-size: clamp(36px, 6vw, 60px); font-weight: 800; font-stretch: 118%; letter-spacing: -0.03em; }
+.posts { list-style: none; padding: 0; margin: 28px 0 0; max-width: 46rem; }
+.posts li { padding: 24px 0; border-top: 1px solid var(--rule); }
+.posts a { text-decoration: none; color: var(--ink); }
+.posts a:hover h2 { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.15em; }
+.posts h2 { font-size: 24px; font-stretch: 104%; }
+.posts p { margin: 8px 0 0; color: var(--ink-2); }
+.posts .meta { font-size: 14.5px; }
+
+@media (max-width: 640px) {
+  .prose { font-size: 17.5px; }
+  .post .standfirst { font-size: 18px; }
+}

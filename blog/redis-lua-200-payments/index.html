@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>200 payments in, 2 counted</title>
+<meta name="description" content="Two replicas of Sentinel&#x27;s fraud scorer updating one merchant&#x27;s history in Redis at the same time. Why a read-then-write lost 198 of 200 updates, how one Lua script fixed it, and how pipelining made it 10x faster without breaking it.">
+<meta property="og:title" content="200 payments in, 2 counted">
+<meta property="og:description" content="Two replicas of Sentinel&#x27;s fraud scorer updating one merchant&#x27;s history in Redis at the same time. Why a read-then-write lost 198 of 200 updates, how one Lua script fixed it, and how pipelining made it 10x faster without breaking it.">
+<meta property="og:type" content="article">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Literata:ital,opsz,wght@0,7..72,400..700;1,7..72,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/site.css">
+<link rel="stylesheet" href="../../assets/blog.css">
+<script src="../../assets/theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="bar">
+  <div class="wrap">
+    <a class="home" href="../../">Aman Raj Verma</a>
+    <nav aria-label="Main">
+      <a href="../../#projects">Projects</a>
+      <a href="../../blog/">Writing</a>
+      <a href="../../resume.pdf">Resume</a>
+      <button class="theme-toggle" type="button">Dark mode</button>
+    </nav>
+  </div>
+</div>
+
+<main id="main" class="wrap">
+  <article class="post">
+    <header>
+      <p class="meta"><a href="../">Writing</a>, 7 November 2026, 4 min read</p>
+      <h1>200 payments in, 2 counted</h1>
+      <p class="standfirst">Two replicas of Sentinel&#x27;s fraud scorer updating one merchant&#x27;s history in Redis at the same time. Why a read-then-write lost 198 of 200 updates, how one Lua script fixed it, and how pipelining made it 10x faster without breaking it.</p>
+    </header>
+    <div class="prose">
+<p><a href="https://github.com/ARV0007/transakt-sentinel">Sentinel</a> scores every payment that settles in my payment gateway for fraud risk. Most of the useful signals are about history: how many payments has this merchant taken in the last two minutes? Is this amount far above their usual? How old is the account?</p>
+<p>So before scoring a payment, the scorer reads the merchant's recent history, and after reading it, records the new payment so the next one sees it. That history lives in Redis, so that a restart or a redeploy doesn't wipe it and hand fraudsters a clean slate.</p>
+<p>Two Redis calls. Read, then write. It worked fine with one scorer.</p>
+<h2>Two replicas, one merchant</h2>
+<p>The scorer is meant to run as more than one copy, all reading from the same Kafka topic. Payments from one busy merchant can land on both copies at once. Then this can happen:</p>
+<ol>
+<li>Replica A reads the history: 5 payments so far.</li>
+<li>Replica B reads the history: 5 payments so far.</li>
+<li>A writes: now 6.</li>
+<li>B writes: now 6.</li>
+</ol>
+<p>Two payments came in, the count went up by one. Worse, both payments were scored as if the other didn't exist, and "many payments in a short time" is exactly the signal a velocity burst should trip.</p>
+<p>I wrote a test to see how bad it gets: 200 payments for one merchant, sent concurrently through two scorer instances against a real Redis. The naive read-then-write version ended with a count of <strong>2</strong>. Nearly every update was lost.</p>
+<h2>One step instead of two</h2>
+<p>Redis runs a Lua script as a single step. While the script runs, no other command touches those keys. So the fix is to move read-and-record into one script. Shortened a little:</p>
+<pre><code class="language-lua">local ts = tonumber(ARGV[1])
+local floor = ts - tonumber(ARGV[2])
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', '(' .. floor)   -- drop old events
+local rows = redis.call('ZRANGEBYSCORE', KEYS[1], floor, ts, 'WITHSCORES')
+local total = tonumber(redis.call('GET', KEYS[2]) or '0')
+-- (skip this payment's own entry if Kafka redelivered it)
+if redis.call('ZADD', KEYS[1], ts, ARGV[4]) == 1 then
+  redis.call('INCR', KEYS[2])   -- count only a genuinely new payment
+end
+-- cap the set, set expiries
+return {total - replay, prior}
+</code></pre>
+<p>The history is a sorted set per merchant, scored by timestamp, plus an all-time counter. The script trims the window, reads what's left, adds the new payment and returns the history <em>as it was before this payment</em>. That's what the features need.</p>
+<p>Two details came from thinking about Kafka rather than about concurrency. Kafka delivers at least once, so the same payment can arrive twice. The script recognises its own payment id in the set and never compares a payment with itself. And the counter only goes up if <code>ZADD</code> actually added something, so a redelivery doesn't count twice.</p>
+<p>The same test now passes with every payment seeing a different "count before me", 0 through 199, and a final count of <strong>200</strong>. The assertion checks both, because a final count of 200 alone could still hide two payments that saw the same history.</p>
+<h2>Then it was slow</h2>
+<p>Correct, but each payment now cost one round trip to Redis. With Redis behind it, the scorer did about 355 payments a second.</p>
+<p>The fix was batching. I changed the Kafka consumer to take up to 200 messages per poll and score them together, so the scorer could send all their scripts in one <strong>pipeline</strong>: one round trip instead of 200. That took it to about <strong>3,505 payments a second</strong>, roughly 10x.</p>
+<p>But was batching still correct? Payments number 3 and 7 of a merchant might be in the same batch, and number 7 has to see number 3 in its history.</p>
+<p>It does, for a reason worth spelling out: Redis executes the commands of a pipeline in the order it receives them. Each script is still atomic by itself, and they run in order, so payment 7's script runs after payment 3's has already recorded it. Another client could slip a command in between two scripts, but that was already possible one at a time, and it doesn't break anything because each script is complete on its own.</p>
+<p>I didn't want to rely on reasoning alone, so a test computes a whole batch through one pipeline and checks every feature of every payment against computing them one at a time. It runs against an in-memory fake and against real Redis in CI.</p>
+<h2>What I took from it</h2>
+<p>Read-then-write against shared state is a race, even when each call is fast and even when it works every time on your laptop. The test that showed it only failed once I used two clients and real concurrency against a real Redis; the in-memory fake couldn't show it.</p>
+<p>And making something fast is a separate step from making it correct. The pipelining change needed its own argument for why order was preserved, and its own test.</p>
+<p>The script is in <a href="https://github.com/ARV0007/transakt-sentinel/blob/main/services/risk-scorer/app/features.py"><code>features.py</code></a> and the tests are in <a href="https://github.com/ARV0007/transakt-sentinel/blob/main/services/risk-scorer/tests/test_state.py"><code>test_state.py</code></a>. You can see the scorer at work in the <a href="/demos/sentinel/">Sentinel replay</a>.</p>
+    </div>
+  </article>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><a href="../../">Aman Raj Verma</a></span>
+    <span><a href="mailto:amanrajverma003@gmail.com">amanrajverma003@gmail.com</a>&nbsp;&nbsp; <a href="https://github.com/ARV0007">GitHub</a></span>
+  </div>
+</footer>
+</body>
+</html>

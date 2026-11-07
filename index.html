@@ -87,6 +87,12 @@
   .entry li { margin-bottom: 6px; }
   @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
 
+  .posts-home { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 32px; }
+  .posts-home a { display: block; color: var(--ink); text-decoration: none; padding: 16px 0; border-top: 1.5px solid var(--ink); }
+  .posts-home a:hover h3 { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.15em; }
+  .posts-home h3 { font-size: 20px; }
+  .posts-home p { margin: 8px 0 0; color: var(--ink-2); font-size: 15.5px; }
+  @media (max-width: 760px) { .posts-home { grid-template-columns: 1fr; } }
   .contact { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
 </style>
 </head>
@@ -99,6 +105,7 @@
       <a href="#projects">Projects</a>
       <a href="#open-source">Open source</a>
       <a href="#experience">Experience</a>
+      <a href="blog/">Writing</a>
       <a href="resume.pdf">Resume</a>
       <button class="theme-toggle" type="button">Dark mode</button>
     </nav>
@@ -254,6 +261,19 @@
           <p>After a forced close, the producer joined its I/O thread with no timeout, so a callback that blocked that thread made <code>close(timeout)</code> hang. The wait is now capped at <code>max.block.ms</code> with a warning, and <code>Thread.join(0)</code>, which means "wait forever", is no longer called when time has run out.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section id="writing" aria-labelledby="writing-title">
+    <div class="wrap">
+      <h2 id="writing-title">Writing</h2>
+      <p class="sub">What broke, why, and how I proved the fix.</p>
+      <div class="posts-home">
+        <a href="blog/kafka-close-timeout/"><h3>When close(timeout) doesn't time out</h3><p>KafkaProducer.close could block forever behind a stuck callback, and Thread.join(0) means "wait forever".</p></a>
+        <a href="blog/cache-the-lookup-not-the-decision/"><h3>Cache the lookup, never the decision</h3><p>A Redis cache in front of API key authentication, the short list of ways an entry goes stale, and how to prove a hit.</p></a>
+        <a href="blog/redis-lua-200-payments/"><h3>200 payments in, 2 counted</h3><p>A read-then-write race across two replicas, fixed with one atomic Lua script, then made 10x faster without breaking it.</p></a>
+      </div>
+      <div class="links"><a class="btn" href="blog/">All posts</a></div>
     </div>
   </section>
 
